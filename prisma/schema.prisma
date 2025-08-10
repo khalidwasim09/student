@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Affiliation {
+  student
+  employee
+  affiliate
+  unknown
+}
+
+enum SSOType {
+  OIDC
+  SAML
+  NONE
+}
+
+model Institution {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  domains     EmailDomain[]
+  users       User[]
+  ssoType     SSOType
+  oidcConfig  Json?
+  samlConfig  Json?
+  status      String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model EmailDomain {
+  id            String       @id @default(cuid())
+  domain        String       @unique
+  institutionId String
+  institution   Institution  @relation(fields: [institutionId], references: [id])
+}
+
+model User {
+  id               String        @id @default(cuid())
+  email            String        @unique
+  emailVerifiedAt  DateTime?
+  institutionId    String?
+  institution      Institution?  @relation(fields: [institutionId], references: [id])
+  affiliation      Affiliation
+  ssoProvider      String?
+  ssoSubject       String?
+  reverifyAfter    DateTime?
+  status           String
+  profile          Profile?
+  preference       Preference?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Profile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  firstName    String
+  birthdate    DateTime
+  gender       String
+  program      String
+  gradYear     Int?
+  bio          String?
+  interests    String[]
+  photos       Photo[]
+  locationLat  Float?
+  locationLng  Float?
+  visible      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id])
+  url       String
+  order     Int
+  createdAt DateTime  @default(now())
+}
+
+model Preference {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id])
+  gender         String?
+  minAge         Int       @default(18)
+  maxAge         Int       @default(45)
+  maxDistanceKm  Int       @default(50)
+  programFilter  String[]
+}
+
+model Swipe {
+  id        String   @id @default(cuid())
+  swiperId  String
+  targetId  String
+  action    String
+  createdAt DateTime @default(now())
+
+  @@index([swiperId, targetId], name: "swipe_pair_unique")
+}
+
+model Match {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+  active    Boolean  @default(true)
+
+  @@unique([userAId, userBId])
+}
+
+model Message {
+  id       String   @id @default(cuid())
+  matchId  String
+  senderId String
+  content  String
+  sentAt   DateTime @default(now())
+  readAt   DateTime?
+
+  @@index([matchId, sentAt])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  targetId   String
+  reason     String
+  details    String?
+  createdAt  DateTime @default(now())
+  status     String   @default("open")
+}
+
+model Block {
+  id         String   @id @default(cuid())
+  blockerId  String
+  targetId   String
+  createdAt  DateTime @default(now())
+
+  @@unique([blockerId, targetId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  event     String
+  meta      Json?
+  createdAt DateTime @default(now())
+}
